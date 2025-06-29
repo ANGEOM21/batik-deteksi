@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DeteksiBatik</string>
+    <string name="title_activity_main">DeteksiBatik</string>
+    <string name="package_name">com.deteksibatik</string>
+    <string name="custom_url_scheme">com.deteksibatik</string>
+</resources>
