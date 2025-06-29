@@ -2,7 +2,7 @@
 
 Aplikasi mobile berbasis React + Capacitor untuk mendeteksi motif batik tradisional Indonesia menggunakan model YOLOv8 (versi `.tflite`) secara real-time.
 
-![Demo App](./assets/demo-mega-mendung.png)
+![Demo App](./assets/result.png)
 
 ---
 
