@@ -1,0 +1,54 @@
+name: Batik Detection IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Node setup
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install deps
+        run: npm install
+
+      - name: Build Vite
+        run: npm run build
+
+      - name: Capacitor sync
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install
+
+      - name: Archive IPA
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -archivePath ios/build/App.xcarchive \
+            archive \
+            DEVELOPMENT_TEAM="" CODE_SIGN_IDENTITY="" CODE_SIGNING_ALLOWED=NO
+
+      - name: Export unsigned IPA
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath ios/build/App.xcarchive \
+            -exportPath ios/build \
+            -exportOptionsPlist ios/App/exportOptions.plist \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-build
+          path: ios/build/*.ipa

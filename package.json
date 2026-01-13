@@ -12,7 +12,9 @@
   "dependencies": {
     "@capacitor/android": "^7.4.0",
     "@capacitor/core": "^7.4.0",
+    "@capacitor/ios": "^8.0.0",
     "@tailwindcss/vite": "^4.1.11",
+    "@tensorflow-models/mobilenet": "^2.1.1",
     "@tensorflow/tfjs": "^4.22.0",
     "daisyui": "^5.0.43",
     "react": "^19.1.0",

@@ -1,42 +1,137 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as tf from '@tensorflow/tfjs';
-import { FaCamera, FaImages, FaCheckCircle, FaSpinner, FaLeaf, FaTimes } from 'react-icons/fa';
+import { FaCamera, FaImages, FaCheckCircle, FaSpinner, FaLeaf, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 import { GiLoincloth } from 'react-icons/gi';
+import * as mobilenet from '@tensorflow-models/mobilenet';
 
-const LABELS = ['Mega Mendung', 'Parang', 'Truntum', 'Kawung'];
+const LABELS = ['Kawung', 'Mega_Mendung', 'Parang', 'Truntum'];
 
 const App = () => {
   const [imageURL, setImageURL] = useState<string | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
   const [model, setModel] = useState<tf.GraphModel | null>(null);
-  const [predictionLabel, setPredictionLabel] = useState<string | null>(null);
-  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [generalModel, setGeneralModel] = useState<mobilenet.MobileNet | null>(null);
+  const [prediction, setPrediction] = useState<{ label: string; confidence: string } | null>(null);
+
+  const [isModelLoading, setIsModelLoading] = useState(true);
   const [isPredicting, setIsPredicting] = useState(false);
 
-  // Load model on component mount
+  const imageRef = useRef<HTMLImageElement | null>(null);
+
   useEffect(() => {
-    loadModel();
+    const loadModels = async () => {
+      setIsModelLoading(true);
+      try {
+        const batikM = await tf.loadGraphModel('/model/model.json');
+        setModel(batikM);
+
+        const generalM = await mobilenet.load();
+        setGeneralModel(generalM);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsModelLoading(false);
+      }
+    };
+
+    tf.ready().then(() => loadModels());
   }, []);
 
+  const handlePredict = async () => {
+    if (!imageRef.current || !model || !generalModel) return;
+
+    setIsPredicting(true);
+    setPrediction(null);
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      const generalPredictions = await generalModel.classify(imageRef.current);
+      console.log("MobileNet Mendeteksi:", generalPredictions);
+      const topResult = generalPredictions[0].className.toLowerCase();
+      const BLOCKED_KEYWORDS = [
+        // Kartun/Kertas/Layar (Musuh utama kita)
+        'comic book', 'web site', 'monitor', 'screen', 'menu', 'packet',
+        'envelope', 'binder', 'poster', 'scoreboard', 'slot', 'television',
+
+        // Kategori: Manusia
+        'person', 'face', 'man', 'woman', 'groom', 'suit',
+
+        // Kategori: Kendaraan
+        'car', 'truck', 'bike', 'racer', 'vehicle', 'wheel',
+        // Kategori: Makanan
+        'pizza', 'burger', 'hotdog', 'plate', 'ice cream'
+      ];
+
+      // Cek apakah hasil deteksi ada di daftar terlarang?
+      const isBlocked = BLOCKED_KEYWORDS.some(keyword => topResult.includes(keyword));
+      if (isBlocked) {
+        setPrediction({
+          label: `Bukan Batik (${topResult})`,
+          confidence: "100%"
+        });
+        setIsPredicting(false);
+        return;
+      }
+
+      // ---------------------------------------------------------
+      // TAHAP 2: BATIK AI (ResNet)
+      // ---------------------------------------------------------
+      const img = tf.browser.fromPixels(imageRef.current)
+        .resizeNearestNeighbor([224, 224])
+        .toFloat()
+        .expandDims(0);
+
+      const result = model.predict(img) as tf.Tensor;
+      const data = await result.data();
+
+      let maxScore = -1;
+      let maxClass = -1;
+
+      for (let i = 0; i < data.length; i++) {
+        if (data[i] > maxScore) {
+          maxScore = data[i];
+          maxClass = i;
+        }
+      }
+
+      // Threshold Batik (Bisa dinaikkan sedikit biar aman)
+      if (maxScore > 0.98) {
+        setPrediction({
+          label: LABELS[maxClass],
+          confidence: (maxScore * 100).toFixed(1) + '%'
+        });
+      } else {
+        setPrediction({
+          label: "Tidak Dikenali / Bukan Batik",
+          confidence: (maxScore * 100).toFixed(1) + '%'
+        });
+      }
+
+      tf.dispose([img, result]);
+
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan.");
+    } finally {
+      setIsPredicting(false);
+    }
+  };
+  //  HELPER
   const resetAll = () => {
     setImageURL(null);
-    setPredictionLabel(null);
-    // Clear file input value
+    setPrediction(null);
     const fileInput = document.getElementById('fileInput') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
 
+  //  UPLOAD GAMBAR 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      resetAll(); // Reset sebelum menampilkan gambar baru
-      setImageURL(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    processFile(file);
   };
 
+  //  KAMERA 
   const handleCameraInput = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -45,148 +140,104 @@ const App = () => {
     input.onchange = (e: Event) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          resetAll(); // Reset sebelum menampilkan gambar baru
-          setImageURL(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
+      if (file) processFile(file);
     };
     input.click();
   };
 
-  const handlePredict = async () => {
-    if (!imageRef.current || !model) return;
-    setIsPredicting(true);
-    setPredictionLabel(null);
-
-    try {
-      const img = tf.browser.fromPixels(imageRef.current)
-        .resizeNearestNeighbor([640, 640])
-        .toFloat()
-        .div(255)
-        .expandDims(0);
-
-      const result: any = await model.executeAsync({ x: img });
-      const data = result.arraySync?.()[0];
-
-      if (!data) return;
-
-      const classProbs = data.slice(5);
-      let maxClass = -1;
-      let maxScore = -Infinity;
-
-      for (let i = 0; i < classProbs.length; i++) {
-        for (let j = 0; j < classProbs[i].length; j++) {
-          const conf = classProbs[i][j];
-          if (conf > maxScore) {
-            maxScore = conf;
-            maxClass = i;
-          }
-        }
-      }
-
-      const label = maxScore > 0.3 ? LABELS[maxClass] : 'Bukan Batik';
-      setPredictionLabel(label);
-
-      tf.dispose([img, result]);
-    } catch (error) {
-      console.error("Prediction error:", error);
-      setPredictionLabel("Error saat prediksi");
-    } finally {
-      setIsPredicting(false);
-    }
-  };
-
-  const loadModel = async () => {
-    if (model) return;
-    setIsModelLoading(true);
-    try {
-      const m = await tf.loadGraphModel('/model/model.json');
-      setModel(m);
-    } catch (error) {
-      console.error("Model loading error:", error);
-    } finally {
-      setIsModelLoading(false);
-    }
+  const processFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resetAll();
+      setImageURL(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
-    <div className="bg-amber-50 min-h-screen">
-      <div className="bg-amber-800 shadow-lg min-h-screen flex flex-col">
-        {/* Header */}
-        <div className="bg-amber-900 p-4 flex items-center justify-center">
-          <GiLoincloth className="text-amber-200 text-4xl mr-3" />
-          <h1 className="text-2xl font-bold text-amber-100">
-            Deteksi Motif Batik
-          </h1>
+    <div className="bg-amber-50 min-h-screen font-sans">
+      <div className="max-w-md mx-auto bg-white shadow-2xl min-h-screen flex flex-col border-x border-amber-200">
+
+        {/* HEADER */}
+        <div className="bg-gradient-to-r from-amber-800 to-amber-900 p-5 shadow-md">
+          <div className="flex items-center justify-center text-amber-50">
+            <GiLoincloth className="text-4xl mr-3 animate-pulse" />
+            <div>
+              <h1 className="text-xl font-bold tracking-wider">BATIK AI</h1>
+              <p className="text-xs text-amber-200 opacity-80">Klasifikasi Motif Keraton</p>
+              <p className="text-xs text-amber-200 opacity-80">BATIK (KAWUNG, MEGA MENDUNG, PARANG, TRUNTUM)</p>
+            </div>
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="p-4 flex-1 flex flex-col">
-          {/* Image Display */}
-          <div className="bg-amber-100 border-4 border-amber-700 rounded-lg p-2 mb-4 relative">
+        {/* MAIN CONTENT */}
+        <div className="p-5 flex-1 flex flex-col">
+
+          {/* AREA GAMBAR */}
+          <div className="bg-amber-100 border-2 border-dashed border-amber-400 rounded-xl p-3 mb-6 relative min-h-[300px] flex items-center justify-center overflow-hidden">
             {imageURL ? (
               <>
                 <img
                   ref={imageRef}
                   src={imageURL}
-                  alt="Foto Batik"
-                  className="w-full h-64 object-contain rounded-md"
+                  alt="Preview Batik"
+                  className="w-full h-72 object-contain rounded-lg shadow-sm bg-white"
                 />
                 <button
                   onClick={resetAll}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2"
-                  title="Reset"
+                  className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
                 >
                   <FaTimes />
                 </button>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-amber-700">
-                <GiLoincloth className="text-5xl mb-3 opacity-60" />
-                <p className="text-center">Belum ada gambar</p>
+              <div className="text-center text-amber-600 opacity-60">
+                <FaImages className="text-6xl mx-auto mb-2" />
+                <p className="text-sm font-medium">Pilih atau Ambil Foto Batik</p>
               </div>
             )}
           </div>
 
-          {/* Prediction Result */}
-          {predictionLabel && (
-            <div className={`mb-4 p-3 rounded-lg ${predictionLabel === 'Bukan Batik'
-                ? 'bg-red-100 text-red-800'
-                : 'bg-green-100 text-green-800'
+          {/* AREA HASIL PREDIKSI */}
+          {prediction && (
+            <div className={`mb-6 p-4 rounded-xl shadow-sm border-l-4 animate-fade-in-up ${prediction.label.includes("Bukan")
+              ? 'bg-red-50 border-red-500 text-red-800'
+              : 'bg-green-50 border-green-600 text-green-900'
               }`}>
-              <div className="flex items-center">
-                <FaCheckCircle className="mr-2" />
-                <div className='flex items-center gap-2'>
-                  <p className="font-semibold">Hasil Deteksi:</p>
-                  <p className="text-lg font-bold">{predictionLabel}</p>
+              <div className="flex items-start">
+                <div className="mt-1 mr-3">
+                  {prediction.label.includes("Bukan") ? <FaExclamationTriangle size={24} /> : <FaCheckCircle size={24} />}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide opacity-70">Hasil Deteksi</p>
+                  <h2 className="text-2xl font-extrabold">{prediction.label.replace('_', ' ')}</h2>
+                  <p className="text-sm font-medium mt-1">
+                    Tingkat Keyakinan: <span className="font-bold">{prediction.confidence}</span>
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex space-x-2 mb-4">
-            <div className='w-full grid grid-cols-2 gap-10'>
-              <button
-                onClick={handleCameraInput}
-                disabled={!!imageURL}
-                className={`btn btn-lg ${imageURL ? 'btn-disabled' : 'btn-primary'} text-white`}
-              >
-                <FaCamera size={20} />
-              </button>
+          {/* TOMBOL INPUT */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <button
+              onClick={handleCameraInput}
+              disabled={isPredicting || isModelLoading}
+              className="btn bg-amber-700 hover:bg-amber-700 transition shadow-md disabled:opacity-50 text-white"
+            >
+              <FaCamera size={20} />
+              <span className="text-xs font-bold">Kamera</span>
+            </button>
 
-              <button
-                onClick={() => !imageURL && document.getElementById('fileInput')?.click()}
-                disabled={!!imageURL}
-                className={`btn w-full btn-lg ${imageURL ? 'btn-disabled' : 'btn-secondary'} text-white`}
-              >
-                <FaImages size={20} />
-              </button>
-            </div>
+            <button
+              onClick={() => document.getElementById('fileInput')?.click()}
+              disabled={isPredicting || isModelLoading}
+              className="btn bg-amber-700 hover:bg-amber-700 transition shadow-md disabled:opacity-50 text-white"
+            >
+              <FaImages size={20} />
+              <span className="text-xs font-bold">Galeri</span>
+            </button>
 
             <input
               id="fileInput"
@@ -194,43 +245,47 @@ const App = () => {
               accept="image/*"
               onChange={handleImageUpload}
               className="hidden"
-              disabled={!!imageURL}
             />
           </div>
 
-          {/* Predict Button */}
+          {/* TOMBOL PREDIKSI (DENGAN LOADING) */}
           <button
             onClick={handlePredict}
-            disabled={isPredicting || !imageURL}
-            className={`w-full py-3 rounded-lg font-bold flex items-center justify-center ${isPredicting || !imageURL
-                ? 'bg-gray-300 text-gray-500'
-                : 'bg-green-600 hover:bg-green-700 text-white'
+            disabled={!imageURL || isPredicting || isModelLoading}
+            className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center transition-all ${!imageURL || isPredicting || isModelLoading
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-xl transform active:scale-95'
               }`}
           >
             {isPredicting ? (
               <>
-                <FaSpinner className="animate-spin mr-2" />
-                Memproses...
+                <FaSpinner className="animate-spin mr-3 text-xl" />
+                Sedang Menganalisis...
               </>
             ) : (
               <>
                 <FaLeaf className="mr-2" />
-                Deteksi Motif
+                Deteksi Motif Sekarang
               </>
             )}
           </button>
 
-          {/* Model Status */}
-          <div className="mt-4 text-center text-amber-100">
+          {/* STATUS MODEL FOOTER */}
+          <div className="mt-auto pt-6 text-center">
             {isModelLoading ? (
-              <p className="flex items-center justify-center">
+              <p className="text-xs text-amber-600 flex items-center justify-center bg-amber-100 py-1 px-3 rounded-full inline-flex">
                 <FaSpinner className="animate-spin mr-2" />
-                Memuat Prediksi...
+                Sedang memuat AI Model...
               </p>
             ) : model ? (
-              <p>Prediksi siap digunakan</p>
+              <p className="text-xs text-green-600 flex items-center justify-center bg-green-100 py-1 px-3 rounded-full inline-flex">
+                <FaCheckCircle className="mr-2" />
+                AI Model Siap Digunakan
+              </p>
             ) : (
-              <p>Prediksi belum dimuat</p>
+              <p className="text-xs text-red-500 bg-red-100 py-1 px-3 rounded-full inline-flex">
+                Gagal memuat Model
+              </p>
             )}
           </div>
         </div>
