@@ -8,12 +8,13 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Node setup
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install deps
         run: npm install
@@ -36,7 +37,9 @@ jobs:
             -scheme App \
             -archivePath ios/build/App.xcarchive \
             archive \
-            DEVELOPMENT_TEAM="" CODE_SIGN_IDENTITY="" CODE_SIGNING_ALLOWED=NO
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Export unsigned IPA
         run: |
@@ -52,4 +55,3 @@ jobs:
         with:
           name: ios-build
           path: ios/build/*.ipa
-
