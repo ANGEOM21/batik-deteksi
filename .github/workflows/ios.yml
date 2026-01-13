@@ -30,26 +30,7 @@ jobs:
           cd ios/App
           pod install
 
-      - name: Create exportOptions.plist
-        run: |
-          cat <<EOF > ios/App/exportOptions.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>teamID</key>
-              <string></string>
-          </dict>
-          </plist>
-          EOF
-
-      - name: Archive IPA
+      - name: Archive App
         run: |
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
@@ -58,19 +39,29 @@ jobs:
             archive \
             -sdk iphoneos \
             -configuration Release \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO
 
-      - name: Export unsigned IPA
+      - name: Package IPA manually
         run: |
-          xcodebuild \
-            -exportArchive \
-            -archivePath ios/build/App.xcarchive \
-            -exportPath ios/build \
-            -exportOptionsPlist ios/App/exportOptions.plist \
-            CODE_SIGNING_ALLOWED=NO
+          # Masuk ke folder tempat aplikasi hasil build berada
+          cd ios/build/App.xcarchive/Products/Applications
+          
+          # Struktur IPA wajib: Folder 'Payload' berisi 'App.app'
+          mkdir Payload
+          mv App.app Payload/
+          
+          # Zip folder Payload menjadi file .ipa
+          zip -r App.ipa Payload
+          
+          # Pindahkan file .ipa yang sudah jadi ke folder ios/build agar bisa di-upload
+          mv App.ipa ../../../
+          
+          echo "IPA created successfully at ios/build/App.ipa"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: ios/build/*.ipa
+          path: ios/build/App.ipa
