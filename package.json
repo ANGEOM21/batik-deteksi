@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.0",
-    "@capacitor/core": "^7.4.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "@tailwindcss/vite": "^4.1.11",
     "@tensorflow-models/mobilenet": "^2.1.1",
