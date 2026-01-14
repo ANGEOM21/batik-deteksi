@@ -45,5 +45,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+    <string>Aplikasi ini butuh kamera untuk memotret kain batik agar bisa dideteksi motifnya.</string>
+    
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Aplikasi ini butuh akses galeri untuk mengambil foto batik yang sudah ada.</string>
+    
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Aplikasi ini butuh akses untuk menyimpan hasil foto batik.</string>
 </dict>
 </plist>
