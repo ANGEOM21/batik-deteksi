@@ -191,12 +191,18 @@ const App = () => {
     <div className="bg-amber-50 min-h-screen font-sans">
       <div className="max-w-md mx-auto bg-white shadow-2xl min-h-screen flex flex-col border-x border-amber-200">
 
-        <div className="bg-gradient-to-r from-amber-800 to-amber-900 p-5 shadow-md">
+        <div 
+          className="bg-gradient-to-r from-amber-800 to-amber-900 shadow-md px-5 pb-5"
+          style={{
+            paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)' 
+          }}
+        >
           <div className="flex items-center justify-center text-amber-50">
             <GiLoincloth className="text-4xl mr-3 animate-pulse" />
             <div>
               <h1 className="text-xl font-bold tracking-wider">BATIK AI</h1>
               <p className="text-xs text-amber-200 opacity-80">Klasifikasi Motif Keraton</p>
+              <p className="text-xs text-amber-200 opacity-80">BATIK (KAWUNG, MEGA MENDUNG, PARANG, TRUNTUM)</p>
             </div>
           </div>
         </div>
