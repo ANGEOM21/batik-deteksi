@@ -45,23 +45,15 @@ jobs:
 
       - name: Package IPA manually
         run: |
-          # Masuk ke folder tempat aplikasi hasil build berada
           cd ios/build/App.xcarchive/Products/Applications
-          
-          # Struktur IPA wajib: Folder 'Payload' berisi 'App.app'
           mkdir Payload
           mv App.app Payload/
-          
-          # Zip folder Payload menjadi file .ipa
           zip -r App.ipa Payload
-          
-          # Pindahkan file .ipa yang sudah jadi ke folder ios/build agar bisa di-upload
           mv App.ipa ../../../
-          
-          echo "IPA created successfully at ios/build/App.ipa"
+          echo "IPA created successfully at ios/build/Deteksi_Motif_Batik.ipa"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: ios/build/App.ipa
+          name: deteksi-batik
+          path: ios/build/Deteksi_Motif_Batik.ipa
