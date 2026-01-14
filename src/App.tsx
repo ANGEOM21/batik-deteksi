@@ -27,7 +27,7 @@ const App = () => {
       setIsModelLoading(true);
       try {
         await tf.ready();
-        
+
         try {
           const batikM = await tf.loadGraphModel('/model/model.json');
           setModel(batikM);
@@ -134,16 +134,16 @@ const App = () => {
       if (generalModel) {
         const generalPredictions = await generalModel.classify(imageRef.current);
         const topResult = generalPredictions[0].className.toLowerCase();
-        
+
         const BLOCKED_KEYWORDS = [
-          'comic book', 'web site', 'monitor', 'screen', 'menu', 'packet', 'envelope', 
-          'binder', 'poster', 'scoreboard', 'slot', 'television', 'person', 'face', 
-          'man', 'woman', 'groom', 'suit', 'car', 'truck', 'bike', 'vehicle', 
+          'comic book', 'web site', 'monitor', 'screen', 'menu', 'packet', 'envelope',
+          'binder', 'poster', 'scoreboard', 'slot', 'television', 'person', 'face',
+          'man', 'woman', 'groom', 'suit', 'car', 'truck', 'bike', 'vehicle',
           'pizza', 'burger', 'hotdog', 'plate', 'food'
         ];
 
         const isBlocked = BLOCKED_KEYWORDS.some(keyword => topResult.includes(keyword));
-        
+
         if (isBlocked) {
           setPrediction({ label: `Bukan Batik (${topResult})`, confidence: "100%" });
           setIsPredicting(false);
@@ -171,11 +171,11 @@ const App = () => {
         }
 
         const confValue = (maxScore * 100).toFixed(1) + '%';
-        
-        if (maxScore > 0.70) { 
-           setPrediction({ label: LABELS[maxClass], confidence: confValue });
+
+        if (maxScore > 0.70) {
+          setPrediction({ label: LABELS[maxClass], confidence: confValue });
         } else {
-           setPrediction({ label: "Tidak Dikenali / Bukan Batik", confidence: confValue });
+          setPrediction({ label: "Tidak Dikenali / Bukan Batik", confidence: confValue });
         }
       });
 
@@ -187,14 +187,17 @@ const App = () => {
     }
   };
 
+  const isIOS = Capacitor.getPlatform() === 'ios';
+
   return (
     <div className="bg-amber-50 min-h-screen font-sans">
       <div className="max-w-md mx-auto bg-white shadow-2xl min-h-screen flex flex-col border-x border-amber-200">
 
-        <div 
+        <div
           className="bg-gradient-to-r from-amber-800 to-amber-900 shadow-md px-5 pb-5"
           style={{
-            paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)' 
+            paddingTop: isIOS ? '5rem' : '1.25rem',
+            transition: 'padding 0.3s'
           }}
         >
           <div className="flex items-center justify-center text-amber-50">
@@ -202,7 +205,7 @@ const App = () => {
             <div>
               <h1 className="text-xl font-bold tracking-wider">BATIK AI</h1>
               <p className="text-xs text-amber-200 opacity-80">Klasifikasi Motif Keraton</p>
-              <p className="text-xs text-amber-200 opacity-80">BATIK (KAWUNG, MEGA MENDUNG, PARANG, TRUNTUM)</p>
+              <p className="text-xs text-amber-200 opacity-80">(KAWUNG, MEGA MENDUNG, PARANG, TRUNTUM)</p>
             </div>
           </div>
         </div>
@@ -281,7 +284,7 @@ const App = () => {
               onChange={handleWebInputChange}
               className="hidden"
             />
-            
+
             <input
               ref={webGalleryInputRef}
               type="file"
